@@ -1,13 +1,53 @@
+type Interceptor = {
+	request: Function[];
+	response: Function[];
+};
 
-
-
-
+type RequestOptions = {
+	body?: string;
+	cache?: String;
+	credentials?: String;
+	headers?: Object;
+	method?: String;
+	mode?: String;
+	redirect?: String;
+	referrer?: String;
+	baseURL?: String;
+};
 
 /**
  * 创建 fetch 请求
  */
 export class RequestFetch {
-	private options: any;
+	// 请求配置
+	private options: RequestOptions = {};
+	defaults: any = {};
+
+	// 拦截器
+	interceptor: Interceptor = {
+		request: [],
+		response: [],
+	};
+
+	// 请求拦截器
+	private useRequestInterceptor() {
+		this.interceptor.request.forEach((interceptor: Function) => {
+			interceptor(this.options);
+		});
+	}
+
+	// 响应拦截器
+	private useResponseInterceptor() {
+		this.interceptor.response.forEach((interceptor: Function) => {
+			interceptor(this.options);
+		});
+	}
+
+	// 添加拦截器
+	addInterceptors(requestInterceptor: Function, responseInterceptor: Function) {
+		this.interceptor.request.push(requestInterceptor);
+		this.interceptor.response.push(responseInterceptor);
+	}
 
 	/**
 	 * get 请求
@@ -16,9 +56,19 @@ export class RequestFetch {
 	 * @returns Promise<请求结果>
 	 */
 	async get(url: string) {
-		const options = {};
+		const { baseURL } = this.defaults;
+		if (baseURL) {
+			url = baseURL + url;
+		}
+		// 合并配置
 
-		const response = await fetch(url, options);
+		// this.useRequestInterceptor();
+
+		console.log("发起请求", url);
+		const response = await fetch(url);
+
+		// this.useResponseInterceptor();
+
 		return await response.json();
 	}
 
@@ -43,9 +93,3 @@ export class RequestFetch {
 		return await response.json();
 	}
 }
-
-// 请求拦截器
-export function useRequestInterceptor() {}
-
-// 响应拦截器
-export function useResponseInterceptor() {}
