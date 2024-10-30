@@ -14,6 +14,11 @@ interface Interceptor {
 	rejected?: RejectedFn;
 }
 
+export interface PromiseChain {
+	resolved: ResolvedFn | ((config: any) => any);
+	rejected?: RejectedFn;
+}
+
 /**
  * 拦截器管理类
  */

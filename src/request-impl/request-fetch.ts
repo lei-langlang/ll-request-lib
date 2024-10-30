@@ -1,16 +1,13 @@
+import { Requestor } from "../request-core/interface";
 import InterceptorManager, {
 	ResolvedFn,
 	RejectedFn,
+	PromiseChain,
 } from "./utils/fetch_interceptor";
 
 interface Interceptors {
 	request: InterceptorManager;
 	response: InterceptorManager;
-}
-
-interface PromiseChain {
-	resolved: ResolvedFn | ((config: any) => any);
-	rejected?: RejectedFn;
 }
 
 type RequestOptions = {
@@ -29,12 +26,13 @@ type RequestOptions = {
 /**
  * 创建 fetch 请求
  */
-export class RequestFetch {
+export class RequestFetch implements Requestor {
 	public defaults: RequestOptions;
 	private interceptors: Interceptors;
 
 	constructor(options?: RequestOptions) {
 		this.defaults = options || {};
+
 		this.interceptors = {
 			request: new InterceptorManager(),
 			response: new InterceptorManager(),
@@ -73,7 +71,7 @@ export class RequestFetch {
 		};
 
 		// 拼接完整的url
-		const fullUrl = config.baseURL + config.url;
+		const fullUrl = (config.baseURL || "") + config.url;
 		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{
@@ -122,7 +120,7 @@ export class RequestFetch {
 			url += `?${paramsList.join("&")}`;
 		}
 
-		return this.request.apply(this, ["get", url, arguments[2]]);
+		return this.request("get", url, arguments[2]);
 	}
 
 	/**
@@ -150,7 +148,7 @@ export class RequestFetch {
 			options.body = JSON.stringify(data);
 		}
 
-		return this.request.apply(this, ["post", url, options]);
+		return this.request("post", url, options);
 	}
 
 	/**
@@ -178,7 +176,7 @@ export class RequestFetch {
 			options.body = JSON.stringify(data);
 		}
 
-		return this.request.apply(this, ["put", url, options]);
+		return this.request("put", url, options);
 	}
 
 	/**
@@ -201,6 +199,6 @@ export class RequestFetch {
 			url += `?${paramsList.join("&")}`;
 		}
 
-		return this.request.apply(this, ["delete", url, arguments[2]]);
+		return this.request("delete", url, arguments[2]);
 	}
 }
