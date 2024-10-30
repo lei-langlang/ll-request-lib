@@ -1,10 +1,7 @@
 import axios from "../../node_modules/axios/index";
 import { Requestor } from "../request-core/interface";
-import InterceptorManager, {
-	Interceptors,
-	PromiseChain,
-	RequestOptions,
-} from "./interceptor";
+import InterceptorManager from "./interceptor";
+import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 
 export class RequestAxios implements Requestor {
 	public defaults: RequestOptions;

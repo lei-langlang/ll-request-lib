@@ -1,9 +1,6 @@
 import { Requestor } from "../request-core/interface";
-import InterceptorManager, {
-	Interceptors,
-	PromiseChain,
-	RequestOptions,
-} from "./interceptor";
+import InterceptorManager from "./interceptor";
+import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 
 /**
  * 创建 fetch 请求
@@ -63,11 +60,11 @@ export class RequestFetch implements Requestor {
 		];
 
 		// 把用户定义的请求拦截器存放到任务链中，请求拦截器最后注册的最先执行，所以使用unshift方法
-		this.interceptors.request.addIntoChain((interceptor) => {
+		this.interceptors.request.addIntoChain((interceptor: PromiseChain) => {
 			chain.unshift(interceptor);
 		});
 		// 把响应拦截器存放到任务链中
-		this.interceptors.response.addIntoChain((interceptor) => {
+		this.interceptors.response.addIntoChain((interceptor: PromiseChain) => {
 			chain.push(interceptor);
 		});
 
