@@ -1,14 +1,14 @@
-import axios, { AxiosInstance } from "../../node_modules/axios/index";
+import axios from "../../node_modules/axios/index";
 import { Requestor } from "../request-core/interface";
 import InterceptorManager, {
-	ResolvedFn,
-	RejectedFn,
+	Interceptors,
 	PromiseChain,
-} from "./utils/fetch_interceptor";
+	RequestOptions,
+} from "./interceptor";
 
 export class RequestAxios implements Requestor {
-	public defaults: any;
-	private interceptors: any;
+	public defaults: RequestOptions;
+	private interceptors: Interceptors;
 
 	constructor(options?: any) {
 		this.defaults = options || {};
@@ -34,6 +34,13 @@ export class RequestAxios implements Requestor {
 		}
 	}
 
+	/**
+	 * 封装请求函数，结合拦截器
+	 *
+	 * @param method 请求方法
+	 * @param url 请求地址
+	 * @param options 配置项
+	 */
 	request(method: string, url: string, options: IdleRequestOptions) {
 		// 请求配置项
 		const config = {

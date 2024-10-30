@@ -1,27 +1,9 @@
 import { Requestor } from "../request-core/interface";
 import InterceptorManager, {
-	ResolvedFn,
-	RejectedFn,
+	Interceptors,
 	PromiseChain,
-} from "./utils/fetch_interceptor";
-
-interface Interceptors {
-	request: InterceptorManager;
-	response: InterceptorManager;
-}
-
-type RequestOptions = {
-	method?: string;
-	body?: string;
-	baseURL?: string;
-	url?: string;
-	// cache?: string;
-	// credentials?: string;
-	headers?: any;
-	// mode?: string;
-	// redirect?: string;
-	// referrer?: string;
-};
+	RequestOptions,
+} from "./interceptor";
 
 /**
  * 创建 fetch 请求
