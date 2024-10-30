@@ -1,52 +1,106 @@
-type Interceptor = {
-	request: Function[];
-	response: Function[];
-};
+import InterceptorManager, {
+	ResolvedFn,
+	RejectedFn,
+} from "./utils/fetch_interceptor";
+
+interface Interceptors {
+	request: InterceptorManager;
+	response: InterceptorManager;
+}
+
+interface PromiseChain {
+	resolved: ResolvedFn | ((config: any) => any);
+	rejected?: RejectedFn;
+}
 
 type RequestOptions = {
+	method?: string;
 	body?: string;
-	cache?: String;
-	credentials?: String;
-	headers?: Object;
-	method?: String;
-	mode?: String;
-	redirect?: String;
-	referrer?: String;
-	baseURL?: String;
+	baseURL?: string;
+	url?: string;
+	// cache?: string;
+	// credentials?: string;
+	headers?: any;
+	// mode?: string;
+	// redirect?: string;
+	// referrer?: string;
 };
 
 /**
  * 创建 fetch 请求
  */
 export class RequestFetch {
-	// 请求配置
-	private options: RequestOptions = {};
-	defaults: any = {};
+	public defaults: RequestOptions;
+	private interceptors: Interceptors;
 
-	// 拦截器
-	interceptor: Interceptor = {
-		request: [],
-		response: [],
-	};
-
-	// 请求拦截器
-	private useRequestInterceptor() {
-		this.interceptor.request.forEach((interceptor: Function) => {
-			interceptor(this.options);
-		});
+	constructor(options?: RequestOptions) {
+		this.defaults = options || {};
+		this.interceptors = {
+			request: new InterceptorManager(),
+			response: new InterceptorManager(),
+		};
 	}
 
-	// 响应拦截器
-	private useResponseInterceptor() {
-		this.interceptor.response.forEach((interceptor: Function) => {
-			interceptor(this.options);
-		});
+	/**
+	 * 创建 fetch 请求
+	 *
+	 * @param url 请求地址
+	 * @param options 配置项
+	 */
+	async defaultRequest(url: string, options: RequestOptions) {
+		try {
+			const response = await fetch(url, options);
+			return response;
+		} catch (error) {
+			return error;
+		}
 	}
 
-	// 添加拦截器
-	addInterceptors(requestInterceptor: Function, responseInterceptor: Function) {
-		this.interceptor.request.push(requestInterceptor);
-		this.interceptor.response.push(responseInterceptor);
+	/**
+	 * 封装请求函数，结合拦截器
+	 *
+	 * @param method 请求方法
+	 * @param url 请求地址
+	 * @param options 配置项
+	 */
+	request(method: string, url: string, options: RequestOptions) {
+		// 请求配置项
+		const config = {
+			method,
+			url,
+			...this.defaults,
+			...options,
+		};
+
+		// 拼接完整的url
+		const fullUrl = config.baseURL + config.url;
+		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
+		const chain: PromiseChain[] = [
+			{
+				resolved: this.defaultRequest.bind(this, fullUrl, config),
+				rejected: undefined,
+			},
+		];
+
+		// 把用户定义的请求拦截器存放到任务链中，请求拦截器最后注册的最先执行，所以使用unshift方法
+		this.interceptors.request.addIntoChain((interceptor) => {
+			chain.unshift(interceptor);
+		});
+		// 把响应拦截器存放到任务链中
+		this.interceptors.response.addIntoChain((interceptor) => {
+			chain.push(interceptor);
+		});
+
+		// 利用config初始化一个promise
+		let promise = Promise.resolve(config);
+		// 遍历任务链
+		while (chain.length) {
+			// 取出任务链的首个任务
+			const { resolved, rejected } = chain.shift() as PromiseChain;
+			// resolved的执行时机是就是上一个promise执行resolve()的时候，这样就形成了链式调用
+			promise = promise.then(resolved, rejected);
+		}
+		return promise;
 	}
 
 	/**
@@ -55,21 +109,20 @@ export class RequestFetch {
 	 * @param url 请求地址
 	 * @returns Promise<请求结果>
 	 */
-	async get(url: string) {
-		const { baseURL } = this.defaults;
-		if (baseURL) {
-			url = baseURL + url;
+	get() {
+		let url = arguments[0];
+		if (!url) {
+			throw new Error("url 不能为空");
 		}
-		// 合并配置
+		if (arguments[1]) {
+			let paramsList: string[] = [];
+			Object.keys(arguments[1]).forEach((key) => {
+				paramsList.push(`${key}=${arguments[1][key]}`);
+			});
+			url += `?${paramsList.join("&")}`;
+		}
 
-		// this.useRequestInterceptor();
-
-		console.log("发起请求", url);
-		const response = await fetch(url);
-
-		// this.useResponseInterceptor();
-
-		return await response.json();
+		return this.request.apply(this, ["get", url, arguments[2]]);
 	}
 
 	/**
@@ -79,17 +132,75 @@ export class RequestFetch {
 	 * @param data 请求参数
 	 * @returns Promise<请求结果>
 	 */
-	async post(url: string, data: any) {
-		const options = {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(data),
-		};
+	post() {
+		const url = arguments[0] || "";
+		if (!url) {
+			throw new Error("url 不能为空");
+		}
+		const data = arguments[1] || {};
+		const options = arguments[2] || {};
 
-		const response = await fetch(url, options);
+		if (
+			options.headers &&
+			options.headers["content-type"] &&
+			options.headers["content-type"] !== "application/json"
+		) {
+			options.body = data;
+		} else {
+			options.body = JSON.stringify(data);
+		}
 
-		return await response.json();
+		return this.request.apply(this, ["post", url, options]);
+	}
+
+	/**
+	 * put 请求
+	 *
+	 * @param url 请求地址
+	 * @param data 请求参数
+	 * @returns Promise<请求结果>
+	 */
+	put() {
+		const url = arguments[0] || "";
+		if (!url) {
+			throw new Error("url 不能为空");
+		}
+		const data = arguments[1] || {};
+		const options = arguments[2] || {};
+
+		if (
+			options.headers &&
+			options.headers["content-type"] &&
+			options.headers["content-type"] !== "application/json"
+		) {
+			options.body = data;
+		} else {
+			options.body = JSON.stringify(data);
+		}
+
+		return this.request.apply(this, ["put", url, options]);
+	}
+
+	/**
+	 * delete 请求
+	 *
+	 * @param url 请求地址
+	 * @returns Promise<请求结果>
+	 */
+	delete() {
+		let url = arguments[0];
+		if (!url) {
+			throw new Error("url 不能为空");
+		}
+
+		if (arguments[1]) {
+			let paramsList: string[] = [];
+			Object.keys(arguments[1]).forEach((key) => {
+				paramsList.push(`${key}=${arguments[1][key]}`);
+			});
+			url += `?${paramsList.join("&")}`;
+		}
+
+		return this.request.apply(this, ["delete", url, arguments[2]]);
 	}
 }
