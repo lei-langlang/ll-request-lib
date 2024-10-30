@@ -3,7 +3,7 @@ import InterceptorManager from "./interceptor";
 import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 
 /**
- * 创建 fetch 请求
+ * 创建 fetch 请求器
  */
 export class RequestFetch implements Requestor {
 	public defaults: RequestOptions;
@@ -51,6 +51,7 @@ export class RequestFetch implements Requestor {
 
 		// 拼接完整的url
 		const fullUrl = (config.baseURL || "") + config.url;
+
 		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{

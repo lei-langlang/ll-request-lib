@@ -3,6 +3,9 @@ import { Requestor } from "../request-core/interface";
 import InterceptorManager from "./interceptor";
 import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 
+/**
+ * 创建 axios 请求器
+ */
 export class RequestAxios implements Requestor {
 	public defaults: RequestOptions;
 	private interceptors: Interceptors;
@@ -38,7 +41,7 @@ export class RequestAxios implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	request(method: string, url: string, options: IdleRequestOptions) {
+	request(method: string, url: string, options: any) {
 		// 请求配置项
 		const config = {
 			method,
@@ -89,15 +92,19 @@ export class RequestAxios implements Requestor {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-		if (arguments[1]) {
-			let paramsList: string[] = [];
-			Object.keys(arguments[1]).forEach((key) => {
-				paramsList.push(`${key}=${arguments[1][key]}`);
-			});
-			url += `?${paramsList.join("&")}`;
+
+		let options = {
+			params: arguments[1] || {},
+		};
+
+		if (arguments[2]) {
+			options = {
+				...options,
+				...arguments[2],
+			};
 		}
 
-		return this.request("get", url, arguments[2]);
+		return this.request("get", url, options);
 	}
 
 	/**
@@ -112,17 +119,16 @@ export class RequestAxios implements Requestor {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-		const data = arguments[1] || {};
-		const options = arguments[2] || {};
 
-		if (
-			options.headers &&
-			options.headers["content-type"] &&
-			options.headers["content-type"] !== "application/json"
-		) {
-			options.body = data;
-		} else {
-			options.body = JSON.stringify(data);
+		let options = {
+			data: arguments[1] || {},
+		};
+
+		if (arguments[2]) {
+			options = {
+				...options,
+				...arguments[2],
+			};
 		}
 
 		return this.request("post", url, options);
@@ -140,17 +146,16 @@ export class RequestAxios implements Requestor {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-		const data = arguments[1] || {};
-		const options = arguments[2] || {};
 
-		if (
-			options.headers &&
-			options.headers["content-type"] &&
-			options.headers["content-type"] !== "application/json"
-		) {
-			options.body = data;
-		} else {
-			options.body = JSON.stringify(data);
+		let options = {
+			data: arguments[1] || {},
+		};
+
+		if (arguments[2]) {
+			options = {
+				...options,
+				...arguments[2],
+			};
 		}
 
 		return this.request("put", url, options);
@@ -168,14 +173,17 @@ export class RequestAxios implements Requestor {
 			throw new Error("url 不能为空");
 		}
 
-		if (arguments[1]) {
-			let paramsList: string[] = [];
-			Object.keys(arguments[1]).forEach((key) => {
-				paramsList.push(`${key}=${arguments[1][key]}`);
-			});
-			url += `?${paramsList.join("&")}`;
+		let options = {
+			params: arguments[1] || {},
+		};
+
+		if (arguments[2]) {
+			options = {
+				...options,
+				...arguments[2],
+			};
 		}
 
-		return this.request("delete", url, arguments[2]);
+		return this.request("delete", url, options);
 	}
 }
