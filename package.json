@@ -1,6 +1,6 @@
 {
 	"name": "ll-request-lib",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "基于 axios 和 fetch 封装的请求库，自定义拦截器，支持在 axios 和 fetch 之间实现无缝切换",
 	"main": "index.ts",
 	"scripts": {
