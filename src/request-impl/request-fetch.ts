@@ -10,7 +10,7 @@ export class FetchRequest implements Requestor {
 	private interceptors: Interceptors;
 
 	constructor(options?: RequestOptions) {
-		console.log('============ 创建 fetch 请求器 ============');
+		console.log("============ 创建 fetch 请求器 ============");
 
 		this.defaults = options || {};
 
@@ -120,14 +120,10 @@ export class FetchRequest implements Requestor {
 		const data = arguments[1] || {};
 		const options = arguments[2] || {};
 
-		if (
-			options.headers &&
-			options.headers["content-type"] &&
-			options.headers["content-type"] !== "application/json"
-		) {
-			options.body = data;
-		} else {
+		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
+		} else {
+			options.body = data;
 		}
 
 		return this.request("post", url, options);
@@ -148,14 +144,10 @@ export class FetchRequest implements Requestor {
 		const data = arguments[1] || {};
 		const options = arguments[2] || {};
 
-		if (
-			options.headers &&
-			options.headers["content-type"] &&
-			options.headers["content-type"] !== "application/json"
-		) {
-			options.body = data;
-		} else {
+		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
+		} else {
+			options.body = data;
 		}
 
 		return this.request("put", url, options);

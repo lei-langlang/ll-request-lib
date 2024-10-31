@@ -48,3 +48,25 @@ export default request;
 
 ```
 
+定义接口
+
+```js
+import request from "@/utils/request.js";
+
+// 测试 get 请求
+export const testGet = (params) => request.get("/test", params);
+
+// 测试 post 请求
+export const testPost = (data) => request.post("/test", data);
+
+// 测试 put 请求
+export const testPut = (data) => request.put("/test", data);
+
+// 测试 delete 请求
+export const testDelete = (params) => request.delete("/test", params);
+
+// 测试 post 请求 发送 formData 数据
+export const testPostFormData = (data) => request.post("/test/formData", data);
+
+```
+
