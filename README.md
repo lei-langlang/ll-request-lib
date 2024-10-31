@@ -3,6 +3,8 @@
 
 采用依赖倒置原则，具体的实现抽离到 request-impl 中，依赖 request-core 层提供的 Requestor 接口
 
+以后如果需要继续扩展，仅需要在 request-impl 层定义具体的实现，在入口文件中导出即可
+
 ##	使用方式
 
 ```js
