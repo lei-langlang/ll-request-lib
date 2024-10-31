@@ -1,4 +1,4 @@
-import axios from "../../node_modules/axios/index";
+import axios from "axios";
 import { Requestor } from "../request-core/interface";
 import InterceptorManager from "./interceptor";
 import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
@@ -6,11 +6,13 @@ import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 /**
  * 创建 axios 请求器
  */
-export class RequestAxios implements Requestor {
+export class AxiosRequest implements Requestor {
 	public defaults: RequestOptions;
 	private interceptors: Interceptors;
 
 	constructor(options?: any) {
+		console.log('============ 创建 axios 请求器 ============');
+
 		this.defaults = options || {};
 
 		this.interceptors = {

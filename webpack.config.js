@@ -17,6 +17,16 @@ module.exports = {
 				use: "ts-loader", // 就是上面安装的ts-loader
 				exclude: "/node-modules/", // 排除node-modules目录
 			},
+			{
+				test: /\.js$/,
+				exclude: /node_modules/,
+				use: {
+					loader: "babel-loader",
+					options: {
+						presets: ["@babel/preset-env"],
+					},
+				},
+			},
 		],
 	},
 	resolve: {

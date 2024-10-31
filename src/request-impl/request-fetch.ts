@@ -5,11 +5,13 @@ import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
 /**
  * 创建 fetch 请求器
  */
-export class RequestFetch implements Requestor {
+export class FetchRequest implements Requestor {
 	public defaults: RequestOptions;
 	private interceptors: Interceptors;
 
 	constructor(options?: RequestOptions) {
+		console.log('============ 创建 fetch 请求器 ============');
+
 		this.defaults = options || {};
 
 		this.interceptors = {
