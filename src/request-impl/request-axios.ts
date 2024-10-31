@@ -1,20 +1,20 @@
 import axios from "axios";
-import { Requestor } from "../request-core/interface";
 import InterceptorManager from "./interceptor";
-import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
+import { Requestor } from "../request-core/interface";
+import { Interceptors, PromiseChain, AxiosRequestOptions, RequestData } from "./type.interface";
 
 /**
  * 创建 axios 请求器
  */
-export class AxiosRequest implements Requestor {
-	public defaults: RequestOptions;
+export class AxiosRequestor implements Requestor {
+	// 默认配置
+	private defaults: AxiosRequestOptions;
+	// 拦截器
 	private interceptors: Interceptors;
 
-	constructor(options?: any) {
-		console.log('============ 创建 axios 请求器 ============');
-
-		this.defaults = options || {};
-
+	constructor(defaults?: AxiosRequestOptions) {
+		console.log("============ 创建 axios 请求器 ============");
+		this.defaults = defaults || {};
 		this.interceptors = {
 			request: new InterceptorManager(),
 			response: new InterceptorManager(),
@@ -27,12 +27,11 @@ export class AxiosRequest implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	async defaultRequest(options: IdleRequestOptions) {
+	private async defaultRequest(options: AxiosRequestOptions): Promise<AxiosRequestOptions | AxiosRequestor> {
 		try {
-			const response = await axios(options);
-			return response;
+			return await axios(options);
 		} catch (error) {
-			return error;
+			return Promise.reject(error);
 		}
 	}
 
@@ -43,17 +42,15 @@ export class AxiosRequest implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	request(method: string, url: string, options: any) {
+	private request(method: string, url: string, options: AxiosRequestOptions): Promise<AxiosRequestOptions | AxiosRequestor> {
 		// 请求配置项
-		const config = {
+		const config: AxiosRequestOptions = {
 			method,
 			...this.defaults,
 			...options,
 		};
-
-		// 拼接完整的url
+		// 拼接完整的请求地址
 		config.url = (config.baseURL || "") + url;
-
 		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{
@@ -61,21 +58,18 @@ export class AxiosRequest implements Requestor {
 				rejected: undefined,
 			},
 		];
-
-		// 把用户定义的请求拦截器存放到任务链中，请求拦截器最后注册的最先执行，所以使用unshift方法
+		// 将用户定义的请求拦截器往任务队列前面添加
 		this.interceptors.request.addIntoChain((interceptor: PromiseChain) => {
 			chain.unshift(interceptor);
 		});
-		// 把响应拦截器存放到任务链中
+		// 将用户定义的响应拦截器往任务队列后面追加
 		this.interceptors.response.addIntoChain((interceptor: PromiseChain) => {
 			chain.push(interceptor);
 		});
-
-		// 利用config初始化一个promise
-		let promise = Promise.resolve(config);
-		// 遍历任务链
+		// 利用 config 初始化一个 promise
+		let promise: Promise<AxiosRequestOptions | AxiosRequestor> = Promise.resolve(config);
 		while (chain.length) {
-			// 取出任务链的首个任务
+			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
 			// resolved的执行时机是就是上一个promise执行resolve()的时候，这样就形成了链式调用
 			promise = promise.then(resolved, rejected);
@@ -87,25 +81,17 @@ export class AxiosRequest implements Requestor {
 	 * get 请求
 	 *
 	 * @param url 请求地址
+	 * @param params 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	get() {
-		let url = arguments[0];
+	get(url: string, params: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-
-		let options = {
-			params: arguments[1] || {},
-		};
-
-		if (arguments[2]) {
-			options = {
-				...options,
-				...arguments[2],
-			};
+		if (params) {
+			options.params = params;
 		}
-
 		return this.request("get", url, options);
 	}
 
@@ -114,25 +100,16 @@ export class AxiosRequest implements Requestor {
 	 *
 	 * @param url 请求地址
 	 * @param data 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	post() {
-		const url = arguments[0] || "";
+	post(url: string, data: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-
-		let options = {
-			data: arguments[1] || {},
-		};
-
-		if (arguments[2]) {
-			options = {
-				...options,
-				...arguments[2],
-			};
+		if (data) {
+			options.data = data;
 		}
-
 		return this.request("post", url, options);
 	}
 
@@ -141,25 +118,16 @@ export class AxiosRequest implements Requestor {
 	 *
 	 * @param url 请求地址
 	 * @param data 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	put() {
-		const url = arguments[0] || "";
+	put(url: string, data: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-
-		let options = {
-			data: arguments[1] || {},
-		};
-
-		if (arguments[2]) {
-			options = {
-				...options,
-				...arguments[2],
-			};
+		if (data) {
+			options.data = data;
 		}
-
 		return this.request("put", url, options);
 	}
 
@@ -167,25 +135,17 @@ export class AxiosRequest implements Requestor {
 	 * delete 请求
 	 *
 	 * @param url 请求地址
+	 * @param params 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	delete() {
-		let url = arguments[0];
+	delete(url: string, params: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
 			throw new Error("url 不能为空");
 		}
-
-		let options = {
-			params: arguments[1] || {},
-		};
-
-		if (arguments[2]) {
-			options = {
-				...options,
-				...arguments[2],
-			};
+		if (params) {
+			options.params = params;
 		}
-
 		return this.request("delete", url, options);
 	}
 }

@@ -5,27 +5,24 @@ import { Interceptor, RejectedFn, ResolvedFn } from "./type.interface";
  */
 export default class InterceptorManager {
 	// 拦截器数组
-	private interceptors: Array<Interceptor | null>;
+	private interceptors: Array<Interceptor>;
 
 	constructor() {
 		this.interceptors = [];
 	}
 
 	// 收集拦截器
-	use(resolved: ResolvedFn, rejected?: RejectedFn): number {
+	use(resolved: ResolvedFn, rejected: RejectedFn): void {
 		this.interceptors.push({
 			resolved,
 			rejected,
 		});
-		return this.interceptors.length - 1;
 	}
 
-	// 遍历用户写的拦截器，并执行fn函数把拦截器作为参数传入
+	// 遍历用户写的拦截器，并执行回调，把拦截器作为参数传入
 	addIntoChain(fn: (interceptor: Interceptor) => void): void {
-		this.interceptors.forEach((interceptor) => {
-			if (interceptor !== null) {
-				fn(interceptor);
-			}
+		this.interceptors.forEach((interceptor: Interceptor) => {
+			interceptor && fn(interceptor);
 		});
 	}
 }

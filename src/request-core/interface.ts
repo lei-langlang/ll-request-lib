@@ -1,10 +1,13 @@
+import { AxiosRequestor } from "../request-impl/request-axios";
+import { FetchRequestor } from "../request-impl/request-fetch";
+import { RequestData, AxiosRequestOptions, FetchRequestOptions } from "../request-impl/type.interface";
+
 /**
  * 请求器接口
  */
-export interface Requestor {
-	defaults: Object;
-	get(url: string, params?: any): Promise<any>;
-	post(url: string, body?: any): Promise<any>;
-	put(url: string, body?: any): Promise<any>;
-	delete(url: string, body?: any): Promise<any>;
+export interface Requestor<T = AxiosRequestOptions | FetchRequestOptions | AxiosRequestor | FetchRequestor> {
+	get(url: string, params?: RequestData, options?: AxiosRequestOptions | FetchRequestOptions): Promise<T>;
+	post(url: string, body?: RequestData, options?: AxiosRequestOptions | FetchRequestOptions): Promise<T>;
+	put(url: string, body?: RequestData, options?: AxiosRequestOptions | FetchRequestOptions): Promise<T>;
+	delete(url: string, params?: RequestData, options?: AxiosRequestOptions | FetchRequestOptions): Promise<T>;
 }

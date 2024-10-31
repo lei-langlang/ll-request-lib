@@ -1,19 +1,19 @@
-import { Requestor } from "../request-core/interface";
 import InterceptorManager from "./interceptor";
-import { Interceptors, PromiseChain, RequestOptions } from "./type.interface";
+import { Requestor } from "../request-core/interface";
+import { Interceptors, PromiseChain, FetchRequestOptions, RequestData } from "./type.interface";
 
 /**
  * 创建 fetch 请求器
  */
-export class FetchRequest implements Requestor {
-	public defaults: RequestOptions;
+export class FetchRequestor implements Requestor {
+	// 默认配置
+	private defaults: FetchRequestOptions;
+	// 拦截器
 	private interceptors: Interceptors;
 
-	constructor(options?: RequestOptions) {
+	constructor(defaults?: FetchRequestOptions) {
 		console.log("============ 创建 fetch 请求器 ============");
-
-		this.defaults = options || {};
-
+		this.defaults = defaults || {};
 		this.interceptors = {
 			request: new InterceptorManager(),
 			response: new InterceptorManager(),
@@ -26,12 +26,11 @@ export class FetchRequest implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	async defaultRequest(url: string, options: RequestOptions) {
+	async defaultRequest(url: string, options: FetchRequestOptions): Promise<FetchRequestOptions | FetchRequestor> {
 		try {
-			const response = await fetch(url, options);
-			return response;
+			return await fetch(url, options);
 		} catch (error) {
-			return error;
+			return Promise.reject(error);
 		}
 	}
 
@@ -42,42 +41,36 @@ export class FetchRequest implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	request(method: string, url: string, options: RequestOptions) {
+	request(method: string, url: string, options: FetchRequestOptions): Promise<FetchRequestOptions | FetchRequestor> {
 		// 请求配置项
-		const config = {
+		const config: FetchRequestOptions = {
 			method,
 			url,
 			...this.defaults,
 			...options,
 		};
-
-		// 拼接完整的url
-		const fullUrl = (config.baseURL || "") + config.url;
-
-		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
-		const chain: PromiseChain[] = [
-			{
-				resolved: this.defaultRequest.bind(this, fullUrl, config),
-				rejected: undefined,
+		// 拼接完整请求地址
+		const URL = (config.baseURL || "") + config.url;
+		// 定义任务队列，默认有一个真正发送请求的任务
+		const chain: PromiseChain[] = [{
+				resolved: this.defaultRequest.bind(this, URL, config), // 真正发送的请求
+				rejected: undefined, // 占位
 			},
 		];
-
-		// 把用户定义的请求拦截器存放到任务链中，请求拦截器最后注册的最先执行，所以使用unshift方法
+		// 将用户定义的请求拦截器往任务队列前面添加
 		this.interceptors.request.addIntoChain((interceptor: PromiseChain) => {
 			chain.unshift(interceptor);
 		});
-		// 把响应拦截器存放到任务链中
+		// 将用户定义的响应拦截器往任务队列后面追加
 		this.interceptors.response.addIntoChain((interceptor: PromiseChain) => {
 			chain.push(interceptor);
 		});
-
-		// 利用config初始化一个promise
-		let promise = Promise.resolve(config);
-		// 遍历任务链
+		// 利用 config 初始化一个 promise
+		let promise: Promise<FetchRequestOptions | FetchRequestor> = Promise.resolve(config);
 		while (chain.length) {
-			// 取出任务链的首个任务
+			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
-			// resolved的执行时机是就是上一个promise执行resolve()的时候，这样就形成了链式调用
+			// resolved 的执行时机是就是上一个 promise 执行 resolve() 的时候，形成了链式调用
 			promise = promise.then(resolved, rejected);
 		}
 		return promise;
@@ -87,22 +80,23 @@ export class FetchRequest implements Requestor {
 	 * get 请求
 	 *
 	 * @param url 请求地址
+	 * @param params 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	get() {
-		let url = arguments[0];
+	get(url: string, params: RequestData, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error("请求地址不能为空");
 		}
-		if (arguments[1]) {
+		// 拼接参数
+		if (params) {
 			let paramsList: string[] = [];
-			Object.keys(arguments[1]).forEach((key) => {
-				paramsList.push(`${key}=${arguments[1][key]}`);
+			Object.keys(params).forEach((key) => {
+				paramsList.push(`${key}=${params[key]}`);
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-
-		return this.request("get", url, arguments[2]);
+		return this.request("get", url, options);
 	}
 
 	/**
@@ -110,22 +104,18 @@ export class FetchRequest implements Requestor {
 	 *
 	 * @param url 请求地址
 	 * @param data 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	post() {
-		const url = arguments[0] || "";
+	post(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error("请求地址不能为空");
 		}
-		const data = arguments[1] || {};
-		const options = arguments[2] || {};
-
 		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
 		} else {
 			options.body = data;
 		}
-
 		return this.request("post", url, options);
 	}
 
@@ -134,22 +124,18 @@ export class FetchRequest implements Requestor {
 	 *
 	 * @param url 请求地址
 	 * @param data 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	put() {
-		const url = arguments[0] || "";
+	put(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error("请求地址不能为空");
 		}
-		const data = arguments[1] || {};
-		const options = arguments[2] || {};
-
 		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
 		} else {
 			options.body = data;
 		}
-
 		return this.request("put", url, options);
 	}
 
@@ -157,22 +143,21 @@ export class FetchRequest implements Requestor {
 	 * delete 请求
 	 *
 	 * @param url 请求地址
+	 * @param params 请求参数
+	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	delete() {
-		let url = arguments[0];
+	delete(url: string, params: RequestData, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error("请求地址不能为空");
 		}
-
-		if (arguments[1]) {
+		if (params) {
 			let paramsList: string[] = [];
-			Object.keys(arguments[1]).forEach((key) => {
-				paramsList.push(`${key}=${arguments[1][key]}`);
+			Object.keys(params).forEach((key) => {
+				paramsList.push(`${key}=${params}`);
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-
-		return this.request("delete", url, arguments[2]);
+		return this.request("delete", url, options);
 	}
 }

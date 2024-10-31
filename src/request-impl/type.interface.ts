@@ -1,5 +1,10 @@
 import InterceptorManager from "./interceptor";
 
+// 任意类型对象
+export interface RequestData {
+	[key: string]: any;
+}
+
 // promise 成功
 export interface ResolvedFn<T = any> {
 	(val: T): T | Promise<T>;
@@ -15,9 +20,18 @@ export interface Interceptors {
 	response: InterceptorManager;
 }
 
-export interface RequestOptions {
+export interface FetchRequestOptions {
 	method?: string;
-	body?: string;
+	body?: any;
+	baseURL?: string;
+	url?: string;
+	headers?: any;
+}
+
+export interface AxiosRequestOptions {
+	method?: string;
+	params?: object;
+	data?: object;
 	baseURL?: string;
 	url?: string;
 	headers?: any;
