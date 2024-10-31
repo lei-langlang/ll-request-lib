@@ -154,7 +154,7 @@ export class FetchRequestor implements Requestor {
 		if (params) {
 			let paramsList: string[] = [];
 			Object.keys(params).forEach((key) => {
-				paramsList.push(`${key}=${params}`);
+				paramsList.push(`${key}=${params[key]}`);
 			});
 			url += `?${paramsList.join("&")}`;
 		}
