@@ -26,6 +26,10 @@ export interface FetchRequestOptions {
 	baseURL?: string;
 	url?: string;
 	headers?: any;
+	signal?: AbortSignal;
+	timeout?: number;
+	retryDelay?: number;
+	retryTimes?: number;
 }
 
 export interface AxiosRequestOptions {
@@ -35,6 +39,8 @@ export interface AxiosRequestOptions {
 	baseURL?: string;
 	url?: string;
 	headers?: any;
+	retryDelay?: number;
+	retryTimes?: number;
 }
 
 // 拦截器对象接口类型

@@ -1,6 +1,13 @@
 import InterceptorManager from "./interceptor";
 import { Requestor } from "../request-core/interface";
-import { Interceptors, PromiseChain, FetchRequestOptions, RequestData } from "./type.interface";
+import {
+	Interceptors,
+	PromiseChain,
+	FetchRequestOptions,
+	RequestData,
+	ResolvedFn,
+} from "./type.interface";
+import retry from "../request-core/requqest-retry";
 
 /**
  * 创建 fetch 请求器
@@ -26,9 +33,41 @@ export class FetchRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	async defaultRequest(url: string, options: FetchRequestOptions): Promise<FetchRequestOptions | FetchRequestor> {
+	async defaultRequest(url: string, options: FetchRequestOptions): Promise<any> {
 		try {
-			return await fetch(url, options);
+			// 创建 abort controller，控制请求超时
+			const controller = new AbortController();
+			options.signal = controller.signal;
+			if (options.signal) {
+				options.signal.addEventListener("abort", () => {
+					controller.abort();
+				});
+			}
+			options.signal = controller.signal;
+			let timerId = null;
+			try {
+				// 生成请求计时器
+				timerId = setTimeout(() => {
+					controller.abort({
+						type: "timeout",
+						url: url,
+						message: "请求超时",
+						statusText: "cancelled",
+					});
+				}, options.timeout || 60000);
+
+				// 发送请求
+				const response = await fetch(url, options);
+				try {
+					return await response.json();
+				} catch (error) {
+					return response;
+				}
+			} catch (error) {
+				return Promise.reject(error);
+			} finally {
+				timerId && clearTimeout(timerId);
+			}
 		} catch (error) {
 			return Promise.reject(error);
 		}
@@ -41,7 +80,7 @@ export class FetchRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	request(method: string, url: string, options: FetchRequestOptions): Promise<FetchRequestOptions | FetchRequestor> {
+	request(method: string, url: string, options: FetchRequestOptions): Promise<any> {
 		// 请求配置项
 		const config: FetchRequestOptions = {
 			method,
@@ -49,11 +88,14 @@ export class FetchRequestor implements Requestor {
 			...this.defaults,
 			...options,
 		};
+		config.retryDelay = config.retryDelay || 0;
+		config.retryTimes = config.retryTimes || 0;
 		// 拼接完整请求地址
 		const URL = (config.baseURL || "") + config.url;
 		// 定义任务队列，默认有一个真正发送请求的任务
-		const chain: PromiseChain[] = [{
-				resolved: this.defaultRequest.bind(this, URL, config), // 真正发送的请求
+		const chain: PromiseChain[] = [
+			{
+				resolved: retry<ResolvedFn>(this.defaultRequest.bind(this, URL, config), config.retryDelay, config.retryTimes), // 真正发送的请求
 				rejected: undefined, // 占位
 			},
 		];
@@ -66,7 +108,7 @@ export class FetchRequestor implements Requestor {
 			chain.push(interceptor);
 		});
 		// 利用 config 初始化一个 promise
-		let promise: Promise<FetchRequestOptions | FetchRequestor> = Promise.resolve(config);
+		let promise: Promise<FetchRequestOptions> = Promise.resolve(config);
 		while (chain.length) {
 			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
@@ -96,7 +138,7 @@ export class FetchRequestor implements Requestor {
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-		return this.request("get", url, options);
+		return this.request("GET", url, options);
 	}
 
 	/**
@@ -116,7 +158,7 @@ export class FetchRequestor implements Requestor {
 		} else {
 			options.body = data;
 		}
-		return this.request("post", url, options);
+		return this.request("POST", url, options);
 	}
 
 	/**
@@ -136,7 +178,7 @@ export class FetchRequestor implements Requestor {
 		} else {
 			options.body = data;
 		}
-		return this.request("put", url, options);
+		return this.request("PUT", url, options);
 	}
 
 	/**
@@ -158,6 +200,6 @@ export class FetchRequestor implements Requestor {
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-		return this.request("delete", url, options);
+		return this.request("DELETE", url, options);
 	}
 }

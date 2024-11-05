@@ -1,7 +1,8 @@
 import axios from "axios";
 import InterceptorManager from "./interceptor";
 import { Requestor } from "../request-core/interface";
-import { Interceptors, PromiseChain, AxiosRequestOptions, RequestData } from "./type.interface";
+import { Interceptors, PromiseChain, AxiosRequestOptions, RequestData, ResolvedFn } from "./type.interface";
+import retry from "../request-core/requqest-retry";
 
 /**
  * 创建 axios 请求器
@@ -27,7 +28,7 @@ export class AxiosRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	private async defaultRequest(options: AxiosRequestOptions): Promise<AxiosRequestOptions | AxiosRequestor> {
+	private async defaultRequest(options: AxiosRequestOptions): Promise<AxiosRequestOptions> {
 		try {
 			return await axios(options);
 		} catch (error) {
@@ -42,7 +43,7 @@ export class AxiosRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	private request(method: string, url: string, options: AxiosRequestOptions): Promise<AxiosRequestOptions | AxiosRequestor> {
+	private request(method: string, url: string, options: AxiosRequestOptions): Promise<AxiosRequestOptions> {
 		// 请求配置项
 		const config: AxiosRequestOptions = {
 			method,
@@ -54,7 +55,8 @@ export class AxiosRequestor implements Requestor {
 		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{
-				resolved: this.defaultRequest.bind(this, config),
+				resolved: retry<any>(this.defaultRequest.bind(this, config), config.retryDelay || 500, config.retryTimes || 0), // 真正发送的请求,
+				// resolved: this.defaultRequest.bind(this, config),
 				rejected: undefined,
 			},
 		];
@@ -67,7 +69,7 @@ export class AxiosRequestor implements Requestor {
 			chain.push(interceptor);
 		});
 		// 利用 config 初始化一个 promise
-		let promise: Promise<AxiosRequestOptions | AxiosRequestor> = Promise.resolve(config);
+		let promise: Promise<AxiosRequestOptions> = Promise.resolve(config);
 		while (chain.length) {
 			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
