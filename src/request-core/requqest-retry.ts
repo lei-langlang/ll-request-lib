@@ -1,13 +1,18 @@
+import { OPTIONS_CONSTANT } from "./type.interface";
 
 /*
  * @param {function} fn - 方法名
  * @param {number} delay - 延迟的时间
  * @param {number} times - 重发的次数
  */
-function retry<T>(fn: () => Promise<T>, delay: number, times: number): any {
-	return new Promise<T>((resolve, reject) => {
-		function func() {
-			Promise.resolve(fn())
+export async function useRetry<T>(
+	fn: () => Promise<T>,
+	delay = OPTIONS_CONSTANT.RETRY_DELAY,
+	times = OPTIONS_CONSTANT.RETRY_TIMES
+): Promise<any> {
+	return new Promise<T>(async (resolve, reject) => {
+		async function func() {
+			fn()
 				.then((res) => {
 					resolve(res);
 				})
@@ -21,8 +26,7 @@ function retry<T>(fn: () => Promise<T>, delay: number, times: number): any {
 					}
 				});
 		}
-		func();
+
+		await func();
 	});
 }
-
-export default retry;

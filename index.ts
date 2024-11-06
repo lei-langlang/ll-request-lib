@@ -1,5 +1,11 @@
-// 导出 fetch 请求器
-export { FetchRequestor } from "./src/request-impl/request-fetch";
+// fetch 请求器
+import { FetchRequestor } from "./src/request-impl/request-fetch";
+// axios 请求器
+import { AxiosRequestor } from "./src/request-impl/request-axios";
 
-// 导出 axios 请求器
-export { AxiosRequestor } from "./src/request-impl/request-axios";
+// 请求重试
+import { useRetry } from "./src/request-core/requqest-retry";
+// 请求并发控制
+import { useConcurrency } from "./src/request-core/request-concurrency";
+
+export { FetchRequestor, AxiosRequestor, useRetry, useConcurrency };

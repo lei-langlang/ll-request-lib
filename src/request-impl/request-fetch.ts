@@ -1,18 +1,19 @@
-import InterceptorManager from "./interceptor";
+import InterceptorManager from "../request-core/request-interceptor";
 import { Requestor } from "../request-core/interface";
 import {
 	Interceptors,
 	PromiseChain,
 	FetchRequestOptions,
 	RequestData,
-	ResolvedFn,
-} from "./type.interface";
-import retry from "../request-core/requqest-retry";
+	ERROR_MESSAGE,
+	REQUEST_METHOD,
+} from "../request-core/type.interface";
+import { useRetry } from "../request-core/requqest-retry";
 
 /**
  * 创建 fetch 请求器
  */
-export class FetchRequestor implements Requestor {
+export class FetchRequestor implements Requestor<Response> {
 	// 默认配置
 	private defaults: FetchRequestOptions;
 	// 拦截器
@@ -28,12 +29,48 @@ export class FetchRequestor implements Requestor {
 	}
 
 	/**
+	 * 根据配置是否启用重试功能
+	 *
+	 * @param url 请求地址
+	 * @param options 配置项
+	 */
+	private async defaultRequest(url: string, options: FetchRequestOptions): Promise<Response> {
+		try {
+			if (options.retry) {
+				return await useRetry(this.useFetch.bind(this, url, options), options.retryDelay, options.retryTimes);
+			}
+			return await this.useFetch(url, options);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	}
+
+	/**
 	 * 创建 fetch 请求
 	 *
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	async defaultRequest(url: string, options: FetchRequestOptions): Promise<any> {
+	private async useFetch(url: string, options: FetchRequestOptions): Promise<Response> {
+		const response = await fetch(url, options);
+		if (response.status >= 400) {
+			return Promise.reject(response);
+		}
+		try {
+			return await response.json();
+		} catch (error) {
+			return response;
+		}
+	}
+
+	/**
+	 * 请求超时控制
+	 *
+	 * @param url 请求地址
+	 * @param options 配置项
+	 * @returns
+	 */
+	private async useTimeout(url: string, options: FetchRequestOptions): Promise<Response> {
 		try {
 			// 创建 abort controller，控制请求超时
 			const controller = new AbortController();
@@ -57,12 +94,7 @@ export class FetchRequestor implements Requestor {
 				}, options.timeout || 60000);
 
 				// 发送请求
-				const response = await fetch(url, options);
-				try {
-					return await response.json();
-				} catch (error) {
-					return response;
-				}
+				return await this.defaultRequest(url, options);
 			} catch (error) {
 				return Promise.reject(error);
 			} finally {
@@ -80,7 +112,7 @@ export class FetchRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	request(method: string, url: string, options: FetchRequestOptions): Promise<any> {
+	private async request(method: string, url: string, options: FetchRequestOptions): Promise<Response> {
 		// 请求配置项
 		const config: FetchRequestOptions = {
 			method,
@@ -88,14 +120,12 @@ export class FetchRequestor implements Requestor {
 			...this.defaults,
 			...options,
 		};
-		config.retryDelay = config.retryDelay || 0;
-		config.retryTimes = config.retryTimes || 0;
 		// 拼接完整请求地址
 		const URL = (config.baseURL || "") + config.url;
 		// 定义任务队列，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{
-				resolved: retry<ResolvedFn>(this.defaultRequest.bind(this, URL, config), config.retryDelay, config.retryTimes), // 真正发送的请求
+				resolved: this.useTimeout.bind(this, URL, config), // 真正发送的请求
 				rejected: undefined, // 占位
 			},
 		];
@@ -108,7 +138,7 @@ export class FetchRequestor implements Requestor {
 			chain.push(interceptor);
 		});
 		// 利用 config 初始化一个 promise
-		let promise: Promise<FetchRequestOptions> = Promise.resolve(config);
+		let promise: Promise<any> = Promise.resolve(config);
 		while (chain.length) {
 			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
@@ -126,9 +156,9 @@ export class FetchRequestor implements Requestor {
 	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	get(url: string, params: RequestData, options: FetchRequestOptions = {}) {
+	async get(url: string, params: RequestData, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("请求地址不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		// 拼接参数
 		if (params) {
@@ -138,7 +168,7 @@ export class FetchRequestor implements Requestor {
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-		return this.request("GET", url, options);
+		return await this.request(REQUEST_METHOD.GET, url, options);
 	}
 
 	/**
@@ -149,16 +179,16 @@ export class FetchRequestor implements Requestor {
 	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	post(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
+	async post(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("请求地址不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
 		} else {
 			options.body = data;
 		}
-		return this.request("POST", url, options);
+		return await this.request(REQUEST_METHOD.POST, url, options);
 	}
 
 	/**
@@ -169,16 +199,16 @@ export class FetchRequestor implements Requestor {
 	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	put(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
+	async put(url: string, data: RequestData = {}, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("请求地址不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (Object.prototype.toString.call(data) == "[object Object]") {
 			options.body = JSON.stringify(data);
 		} else {
 			options.body = data;
 		}
-		return this.request("PUT", url, options);
+		return await this.request(REQUEST_METHOD.PUT, url, options);
 	}
 
 	/**
@@ -189,9 +219,9 @@ export class FetchRequestor implements Requestor {
 	 * @param options 配置项
 	 * @returns Promise<请求结果>
 	 */
-	delete(url: string, params: RequestData, options: FetchRequestOptions = {}) {
+	async delete(url: string, params: RequestData, options: FetchRequestOptions = {}) {
 		if (!url) {
-			throw new Error("请求地址不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (params) {
 			let paramsList: string[] = [];
@@ -200,6 +230,6 @@ export class FetchRequestor implements Requestor {
 			});
 			url += `?${paramsList.join("&")}`;
 		}
-		return this.request("DELETE", url, options);
+		return await this.request(REQUEST_METHOD.DELETE, url, options);
 	}
 }

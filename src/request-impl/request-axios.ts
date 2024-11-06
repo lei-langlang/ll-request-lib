@@ -1,13 +1,13 @@
-import axios from "axios";
-import InterceptorManager from "./interceptor";
+import axios, { AxiosResponse } from "axios";
+import InterceptorManager from "../request-core/request-interceptor";
 import { Requestor } from "../request-core/interface";
-import { Interceptors, PromiseChain, AxiosRequestOptions, RequestData, ResolvedFn } from "./type.interface";
-import retry from "../request-core/requqest-retry";
+import { Interceptors, PromiseChain, AxiosRequestOptions, RequestData, ResolvedFn, REQUEST_METHOD, ERROR_MESSAGE } from "../request-core/type.interface";
+import { useRetry } from "../request-core/requqest-retry";
 
 /**
  * 创建 axios 请求器
  */
-export class AxiosRequestor implements Requestor {
+export class AxiosRequestor implements Requestor<AxiosResponse> {
 	// 默认配置
 	private defaults: AxiosRequestOptions;
 	// 拦截器
@@ -23,16 +23,34 @@ export class AxiosRequestor implements Requestor {
 	}
 
 	/**
+	 * 根据配置是否启用重试功能
+	 *
+	 * @param url 请求地址
+	 * @param options 配置项
+	 */
+	private async defaultRequest(options: AxiosRequestOptions): Promise<AxiosResponse> {
+		try {
+			if (options.retry) {
+				return await useRetry(this.useAxios.bind(this, options), options.retryDelay, options.retryTimes);
+			}
+			return this.useAxios(options);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	}
+
+	/**
 	 * 创建 axios 请求
 	 *
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	private async defaultRequest(options: AxiosRequestOptions): Promise<AxiosRequestOptions> {
+	private async useAxios(options: AxiosRequestOptions): Promise<AxiosResponse> {
+		const response = await axios(options);
 		try {
-			return await axios(options);
+			return response.data;
 		} catch (error) {
-			return Promise.reject(error);
+			return response
 		}
 	}
 
@@ -43,20 +61,16 @@ export class AxiosRequestor implements Requestor {
 	 * @param url 请求地址
 	 * @param options 配置项
 	 */
-	private request(method: string, url: string, options: AxiosRequestOptions): Promise<AxiosRequestOptions> {
+	private async request(method: string, url: string, options: AxiosRequestOptions): Promise<AxiosResponse> {
 		// 请求配置项
-		const config: AxiosRequestOptions = {
-			method,
-			...this.defaults,
-			...options,
-		};
+		const config: AxiosRequestOptions = { method, ...this.defaults, ...options };
 		// 拼接完整的请求地址
 		config.url = (config.baseURL || "") + url;
 		// 定义一个数组，这个数组就是要执行的任务链，默认有一个真正发送请求的任务
 		const chain: PromiseChain[] = [
 			{
-				resolved: retry<any>(this.defaultRequest.bind(this, config), config.retryDelay || 500, config.retryTimes || 0), // 真正发送的请求,
-				// resolved: this.defaultRequest.bind(this, config),
+				// resolved: await useRetry(this.defaultRequest.bind(this, config), config.retryDelay, config.retryTimes), // 真正发送的请求,
+				resolved: this.defaultRequest.bind(this, config),
 				rejected: undefined,
 			},
 		];
@@ -69,7 +83,7 @@ export class AxiosRequestor implements Requestor {
 			chain.push(interceptor);
 		});
 		// 利用 config 初始化一个 promise
-		let promise: Promise<AxiosRequestOptions> = Promise.resolve(config);
+		let promise: Promise<any> = Promise.resolve(config);
 		while (chain.length) {
 			// 取出任务队列最前面的任务（内部分别是成功和失败的回调）
 			const { resolved, rejected } = chain.shift() as PromiseChain;
@@ -89,12 +103,12 @@ export class AxiosRequestor implements Requestor {
 	 */
 	get(url: string, params: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (params) {
 			options.params = params;
 		}
-		return this.request("get", url, options);
+		return this.request(REQUEST_METHOD.GET, url, options);
 	}
 
 	/**
@@ -107,12 +121,12 @@ export class AxiosRequestor implements Requestor {
 	 */
 	post(url: string, data: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (data) {
 			options.data = data;
 		}
-		return this.request("post", url, options);
+		return this.request(REQUEST_METHOD.POST, url, options);
 	}
 
 	/**
@@ -125,12 +139,12 @@ export class AxiosRequestor implements Requestor {
 	 */
 	put(url: string, data: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (data) {
 			options.data = data;
 		}
-		return this.request("put", url, options);
+		return this.request(REQUEST_METHOD.PUT, url, options);
 	}
 
 	/**
@@ -143,11 +157,11 @@ export class AxiosRequestor implements Requestor {
 	 */
 	delete(url: string, params: RequestData, options: AxiosRequestOptions = {}) {
 		if (!url) {
-			throw new Error("url 不能为空");
+			throw new Error(ERROR_MESSAGE.WITHOUT_URL);
 		}
 		if (params) {
 			options.params = params;
 		}
-		return this.request("delete", url, options);
+		return this.request(REQUEST_METHOD.DELETE, url, options);
 	}
 }

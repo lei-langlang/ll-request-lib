@@ -1,4 +1,4 @@
-import InterceptorManager from "./interceptor";
+import InterceptorManager from "./request-interceptor";
 
 // 任意类型对象
 export interface RequestData {
@@ -20,28 +20,25 @@ export interface Interceptors {
 	response: InterceptorManager;
 }
 
-export interface FetchRequestOptions {
-	method?: string;
-	body?: any;
-	baseURL?: string;
-	url?: string;
-	headers?: any;
-	signal?: AbortSignal;
-	timeout?: number;
-	retryDelay?: number;
-	retryTimes?: number;
-}
-
-export interface AxiosRequestOptions {
+export interface RequestOptions {
 	method?: string;
 	params?: object;
 	data?: object;
 	baseURL?: string;
 	url?: string;
 	headers?: any;
+	timeout?: number;
+	retry?: boolean;
 	retryDelay?: number;
 	retryTimes?: number;
 }
+
+export interface FetchRequestOptions extends RequestOptions {
+	body?: any;
+	signal?: AbortSignal;
+}
+
+export interface AxiosRequestOptions extends RequestOptions {}
 
 // 拦截器对象接口类型
 export interface Interceptor {
@@ -52,4 +49,23 @@ export interface Interceptor {
 export interface PromiseChain {
 	resolved: ResolvedFn | ((config: any) => any);
 	rejected?: RejectedFn;
+}
+
+export enum REQUEST_METHOD {
+	GET = "GET",
+	POST = "POST",
+	PUT = "PUT",
+	DELETE = "DELETE",
+}
+
+export enum OPTIONS_CONSTANT {
+	TIMEOUT = 600000,
+	RETRY_DELAY = 1000,
+	RETRY_TIMES = 0,
+	CONCURRENCY_LIMIT = 5,
+}
+
+export enum ERROR_MESSAGE {
+	WITHOUT_URL = "URL不能为空",
+	NETWORK_TIMEOUT = "网络超时",
 }
